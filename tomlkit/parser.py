@@ -473,7 +473,33 @@ class Parser:
         name = names[0]
         name._dotted = True
         if name in container:
-            table = container[name]
+            if not isinstance(value, Table):
+                table = Table(Container(True), Trivia(), False, is_super_table=True)
+                _table = table
+                for i, _name in enumerate(names[1:]):
+                    if i == len(names) - 2:
+                        _name.sep = key.sep
+
+                        _table.append(_name, value)
+                    else:
+                        _name._dotted = True
+                        _table.append(
+                            _name,
+                            Table(
+                                Container(True),
+                                Trivia(),
+                                False,
+                                is_super_table=i < len(names) - 2,
+                            ),
+                        )
+
+                        _table = _table[_name]
+
+                value = table
+
+            container.append(name, value)
+
+            return
         else:
             table = Table(Container(True), Trivia(), False, is_super_table=True)
             if isinstance(container, Table):
@@ -489,7 +515,7 @@ class Parser:
             else:
                 _name._dotted = True
                 if _name in table.value:
-                    table = table.value.item(_name)
+                    table = table.value[_name]
                 else:
                     table.append(
                         _name,
@@ -1043,16 +1069,13 @@ class Parser:
                 # without initializing [foo]
                 #
                 # So we have to create the parent tables
-                if parent and name_parts[0] in parent:
-                    table = parent[name_parts[0]]
-                else:
-                    table = Table(
-                        Container(True),
-                        Trivia(indent, cws, comment, trail),
-                        is_aot and name_parts[0].key in self._aot_stack,
-                        is_super_table=True,
-                        name=name_parts[0].key,
-                    )
+                table = Table(
+                    Container(True),
+                    Trivia(indent, cws, comment, trail),
+                    is_aot and name_parts[0].key in self._aot_stack,
+                    is_super_table=True,
+                    name=name_parts[0].key,
+                )
 
                 result = table
                 key = name_parts[0]

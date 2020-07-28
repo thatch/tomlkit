@@ -11,6 +11,7 @@ from typing import Tuple
 from typing import Union
 
 from ._compat import decode
+from ._utils import merge_dicts
 from .exceptions import KeyAlreadyPresent
 from .exceptions import NonExistentKey
 from .items import AoT
@@ -44,13 +45,20 @@ class Container(dict):
     @property
     def value(self):  # type: () -> Dict[Any, Any]
         d = {}
-        for k in self.keys():
-            v = self[k]
+        for k, v in self._body:
+            if k is None:
+                continue
 
-            if isinstance(v, (Container, OutOfOrderTableProxy)):
+            k = k.key
+            v = v.value
+
+            if isinstance(v, Container):
                 v = v.value
 
-            d[k] = v
+            if k in d:
+                merge_dicts(d[k], v)
+            else:
+                d[k] = v
 
         return d
 
@@ -126,6 +134,10 @@ class Container(dict):
                         self._replace(key, key, current)
                     else:
                         current.append(item)
+
+                    return self
+                elif current.is_aot():
+                    current.append(item)
 
                     return self
                 elif current.is_super_table():
@@ -625,6 +637,9 @@ class Container(dict):
 
     def __str__(self):  # type: () -> str
         return str(self.value)
+
+    def __repr__(self):  # type: () -> str
+        return super(Container, self).__repr__()
 
     def __eq__(self, other):  # type: (Dict) -> bool
         if not isinstance(other, dict):
